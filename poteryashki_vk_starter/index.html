@@ -1,1 +1,203 @@
 
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WB — Поиск товаров</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f5f3fa;color:#211d2b}
+header{padding:25px 18px;background:linear-gradient(135deg,#6f20ed,#ad65ff);color:white;border-radius:0 0 24px 24px}
+.brand{font-size:12px;letter-spacing:2px;font-weight:bold}
+h1{font-size:27px;margin:12px 0 8px}
+header p{font-size:14px;line-height:1.5;margin:0}
+main{max-width:700px;margin:auto;padding:16px 13px 35px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:white;padding:15px;border-radius:15px;border:1px solid #e9e3f1}
+.stat strong{display:block;font-size:25px;margin-bottom:5px}
+.stat span{font-size:12px;color:#898395}
+input,textarea,select{width:100%;padding:13px;border:1px solid #e5dfed;border-radius:11px;font-size:15px;background:white}
+.search{margin:16px 0 12px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+button{border:0;border-radius:12px;padding:13px;font-weight:bold;font-size:14px;cursor:pointer}
+.primary{background:#782cf3;color:white}
+.secondary{background:#eadfff;color:#6721d8}
+h2{font-size:19px;margin:23px 0 12px}
+.filters{display:flex;gap:7px;overflow:auto;margin-bottom:10px}
+.filter{background:white;color:#555;white-space:nowrap}
+.filter.active{background:#26212f;color:white}
+.item{background:white;border:1px solid #e9e3f1;border-radius:16px;padding:15px;margin:10px 0}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.badge{font-size:11px;font-weight:bold;padding:7px 10px;border-radius:20px;background:#ffe8e8;color:#b83232}
+.badge.found{background:#dff8e8;color:#187443}
+.date{font-size:11px;color:#898395}
+.item h3{font-size:18px;margin:13px 0 8px;overflow-wrap:anywhere}
+.info{font-size:13px;color:#777083;line-height:1.8;overflow-wrap:anywhere}
+.desc{font-size:14px;line-height:1.5;margin-top:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+.contact{display:inline-block;margin-top:12px;padding:10px 13px;border-radius:10px;background:#efe6ff;color:#6721d8;text-decoration:none;font-size:13px;font-weight:bold}
+.empty{background:white;padding:28px 15px;text-align:center;border-radius:15px;color:#898395;line-height:1.5}
+.modal{display:none;position:fixed;inset:0;background:#17102199;z-index:10;align-items:flex-end;justify-content:center;padding:8px}
+.modal.open{display:flex}
+.sheet{width:100%;max-width:600px;max-height:94vh;overflow:auto;background:white;border-radius:22px;padding:20px}
+.close{float:right;background:#f1edf7}
+label{display:block;font-size:13px;font-weight:bold;margin:13px 0 6px}
+.submit{width:100%;margin-top:18px}
+.note{font-size:12px;color:#898395;line-height:1.5;margin-top:20px}
+@media(min-width:600px){.modal{align-items:center}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand">WILDBERRIES • ДЛЯ МЕНЕДЖЕРОВ</div>
+ <h1>Поиск товаров 📦</h1>
+ <p>Потеряли или нашли товар? Разместите объявление и помогите коллегам.</p>
+</header>
+<main>
+ <div class="stats">
+  <div class="stat"><strong id="lostCount">0</strong><span>Потерянные товары</span></div>
+  <div class="stat"><strong id="foundCount">0</strong><span>Найденные товары</span></div>
+ </div>
+ <input class="search" id="search" placeholder="🔎 Название, артикул, склад..." oninput="render()">
+ <div class="actions">
+  <button class="primary" onclick="openForm('lost')">＋ Потерял товар</button>
+  <button class="secondary" onclick="openForm('found')">✓ Нашёл товар</button>
+ </div>
+ <h2>Объявления менеджеров</h2>
+ <div class="filters">
+  <button class="filter active" onclick="setFilter('all',this)">Все</button>
+  <button class="filter" onclick="setFilter('lost',this)">Потеряно</button>
+  <button class="filter" onclick="setFilter('found',this)">Найдено</button>
+ </div>
+ <div id="list"></div>
+ <p class="note">Демонстрационная версия: объявления хранятся в браузере текущего устройства. Для общей работы менеджеров подключим базу данных.</p>
+</main>
+
+<div class="modal" id="modal" onclick="if(event.target===this)closeForm()">
+ <div class="sheet">
+  <button class="close" type="button" onclick="closeForm()">✕</button>
+  <h2 id="formTitle">Новое объявление</h2>
+  <form id="adForm">
+   <label>Тип объявления</label>
+   <select id="type">
+    <option value="lost">Потерянный товар</option>
+    <option value="found">Найденный товар</option>
+   </select>
+   <label>Название товара *</label>
+   <input id="name" required maxlength="100" placeholder="Название товара">
+   <label>Артикул WB</label>
+   <input id="article" maxlength="50" placeholder="Артикул, если известен">
+   <label>Склад, зона или ячейка *</label>
+   <input id="warehouse" required maxlength="120" placeholder="Где потеряли или нашли">
+   <label>Описание и приметы</label>
+   <textarea id="description" maxlength="1000" placeholder="Цвет, размер, упаковка, количество"></textarea>
+   <label>Дата и время</label>
+   <input id="time" maxlength="100" placeholder="Например, сегодня утром">
+   <label>Имя менеджера *</label>
+   <input id="manager" required maxlength="80" placeholder="Ваше имя">
+   <label>Контакт для связи *</label>
+   <input id="contact" required maxlength="150" placeholder="Телефон, Telegram или ссылка VK">
+   <button class="primary submit" type="submit">Опубликовать объявление</button>
+  </form>
+ </div>
+</div>
+
+<script>
+const KEY='wb_lost_found_v2';
+let ads=[];
+let currentFilter='all';
+try{
+ ads=JSON.parse(localStorage.getItem(KEY)||'[]');
+ if(!Array.isArray(ads))ads=[];
+}catch(e){ads=[]}
+
+function esc(v){
+ return String(v||'').replace(/[&<>"']/g,c=>({
+ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+ })[c]);
+}
+function save(){
+ try{localStorage.setItem(KEY,JSON.stringify(ads))}
+ catch(e){alert('Не удалось сохранить объявление в браузере')}
+}
+function openForm(type){
+ document.getElementById('type').value=type;
+ document.getElementById('formTitle').textContent=
+ type==='lost'?'📦 Потерянный товар':'🔎 Найденный товар';
+ document.getElementById('modal').classList.add('open');
+}
+function closeForm(){
+ document.getElementById('modal').classList.remove('open');
+}
+function setFilter(type,btn){
+ currentFilter=type;
+ document.querySelectorAll('.filter').forEach(b=>b.classList.remove('active'));
+ btn.classList.add('active');
+ render();
+}
+document.getElementById('adForm').addEventListener('submit',function(e){
+ e.preventDefault();
+ const ad={
+ id:Date.now(),
+ type:document.getElementById('type').value,
+ name:document.getElementById('name').value.trim(),
+ article:document.getElementById('article').value.trim(),
+ warehouse:document.getElementById('warehouse').value.trim(),
+ description:document.getElementById('description').value.trim(),
+ time:document.getElementById('time').value.trim(),
+ manager:document.getElementById('manager').value.trim(),
+ contact:document.getElementById('contact').value.trim(),
+ date:new Date().toLocaleDateString('ru-RU')
+ };
+ if(!ad.name||!ad.warehouse||!ad.manager||!ad.contact){
+  alert('Заполните обязательные поля');return;
+ }
+ ads.unshift(ad);
+ save();
+ this.reset();
+ closeForm();
+ render();
+ alert('Объявление добавлено на этом устройстве');
+});
+function render(){
+ const q=document.getElementById('search').value.toLowerCase().trim();
+ document.getElementById('lostCount').textContent=ads.filter(a=>a.type==='lost').length;
+ document.getElementById('foundCount').textContent=ads.filter(a=>a.type==='found').length;
+ const shown=ads.filter(a=>{
+  const matchType=currentFilter==='all'||a.type===currentFilter;
+  const text=[a.name,a.article,a.warehouse,a.description,a.time,a.manager].join(' ').toLowerCase();
+  return matchType&&text.includes(q);
+ });
+ const list=document.getElementById('list');
+ if(!shown.length){
+  list.innerHTML='<div class="empty"><div style="font-size:32px">📦</div><h3>Объявлений пока нет</h3><div>Добавьте потерянный или найденный товар.</div></div>';
+  return;
+ }
+ list.innerHTML=shown.map(a=>{
+  const found=a.type==='found';
+  let link='';
+  if(/^https?:\/\//i.test(a.contact))link=a.contact;
+  else if(/^@[a-zA-Z0-9_]{5,}$/.test(a.contact))link='https://t.me/'+a.contact.slice(1);
+  return `<article class="item">
+   <div class="row">
+    <span class="badge ${found?'found':''}">${found?'✓ Найдено':'! Потеряно'}</span>
+    <span class="date">${esc(a.date)}</span>
+   </div>
+   <h3>${esc(a.name)}</h3>
+   <div class="info">
+    ${a.article?'🏷️ Артикул: '+esc(a.article)+'<br>':''}
+    📍 ${esc(a.warehouse)}<br>
+    ${a.time?'🕒 '+esc(a.time)+'<br>':''}
+    👤 ${esc(a.manager)}<br>
+    ☎ ${esc(a.contact)}
+   </div>
+   ${a.description?'<div class="desc">'+esc(a.description)+'</div>':''}
+   ${link?'<a class="contact" href="'+esc(link)+'" target="_blank" rel="noopener">Связаться с менеджером</a>':''}
+  </article>`;
+ }).join('');
+}
+render();
+</script>
+</body>
+</html>
+
